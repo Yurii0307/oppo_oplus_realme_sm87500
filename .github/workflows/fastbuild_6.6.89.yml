@@ -74,6 +74,16 @@ on:
         required: true
         type: boolean
         default: 'true'
+      wq_power_efficient:
+        description: 'Enable WQ power-efficient default mode'
+        required: true
+        type: boolean
+        default: 'true'
+      lazy_rcu:
+        description: 'Enable Lazy RCU'
+        required: true
+        type: boolean
+        default: 'true'
       ccache_debug:
         description: '是否上传 Ccache调试日志(用于调试, 无需要不必开启)'
         required: true
@@ -461,6 +471,13 @@ jobs:
           sed -i 's/check_defconfig//' ./common/build.config.gki
           #跳过将uapi标准头安装到 usr/include 目录的不必要操作，节省编译时间
           echo "CONFIG_HEADERS_INSTALL=n" >> ./common/arch/arm64/configs/gki_defconfig
+          if [[ "${{ github.event.inputs.wq_power_efficient }}" == "true" ]]; then
+            echo "CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
+          if [[ "${{ github.event.inputs.lazy_rcu }}" == "true" ]]; then
+            echo "CONFIG_RCU_LAZY=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_RCU_LAZY_DEFAULT_OFF=n" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
           
       - name: 启用网络功能增强优化配置
         if: inputs.better_net
@@ -665,6 +682,28 @@ jobs:
           ccache -s
           echo "编译后空间:"
           df -h
+
+      - name: Build Check - WQ power-efficient
+        if: inputs.wq_power_efficient
+        run: |
+          cd kernel_workspace/common
+          if grep -q '^CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y$' out/.config; then
+            echo "WQ power-efficient build check: success"
+          else
+            echo "WQ power-efficient build check: failed"
+            exit 1
+          fi
+
+      - name: Build Check - Lazy RCU
+        if: inputs.lazy_rcu
+        run: |
+          cd kernel_workspace/common
+          if grep -q '^CONFIG_RCU_LAZY=y$' out/.config && grep -q '^CONFIG_RCU_LAZY_DEFAULT_OFF=n$' out/.config; then
+            echo "Lazy RCU build check: success"
+          else
+            echo "Lazy RCU build check: failed"
+            exit 1
+          fi
          
       - name: 应用KPM并修补内核
         run: |
