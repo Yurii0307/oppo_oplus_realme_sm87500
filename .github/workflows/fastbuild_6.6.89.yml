@@ -656,38 +656,43 @@ jobs:
           echo "FAKESTAT=$FAKESTAT" >> $GITHUB_ENV
           echo "FAKETIME=$FAKETIME" >> $GITHUB_ENV
           SO_DIR=$(pwd)
-          export PRELOAD_LIBS="$SO_DIR/libfakestat.so $SO_DIR/libfaketimeMT.so"
+          # 检测 glibc 兼容性，如果 .so 无法在当前系统加载则跳过时间伪造
+          PRELOAD_LIBS=""
+          if LD_PRELOAD="$SO_DIR/libfakestat.so $SO_DIR/libfaketimeMT.so" date &>/dev/null; then
+            PRELOAD_LIBS="$SO_DIR/libfakestat.so $SO_DIR/libfaketimeMT.so"
+            echo "✅ 时间伪造库兼容当前 glibc，已启用 LD_PRELOAD"
+          else
+            echo "⚠️ 时间伪造库与当前 glibc 不兼容，跳过 LD_PRELOAD"
+          fi
+          export PRELOAD_LIBS
           #创建 CC (编译器) 包装器
           echo '#!/bin/bash' > cc-wrapper
-          echo 'export LD_PRELOAD="'$PRELOAD_LIBS'"' >> cc-wrapper
-          echo 'export FAKESTAT="'$FAKESTAT'"' >> cc-wrapper
-          echo 'export FAKETIME="'$FAKETIME'"' >> cc-wrapper
+          if [ -n "$PRELOAD_LIBS" ]; then
+            echo 'export LD_PRELOAD="'$PRELOAD_LIBS'"' >> cc-wrapper
+            echo 'export FAKESTAT="'$FAKESTAT'"' >> cc-wrapper
+            echo 'export FAKETIME="'$FAKETIME'"' >> cc-wrapper
+          fi
           echo 'ccache clang "$@"' >> cc-wrapper
           #创建 LD (链接器) 包装器
           echo '#!/bin/bash' > ld-wrapper
-          echo 'export LD_PRELOAD="'$PRELOAD_LIBS'"' >> ld-wrapper
-          echo 'export FAKESTAT="'$FAKESTAT'"' >> ld-wrapper
-          echo 'export FAKETIME="'$FAKETIME'"' >> ld-wrapper
+          if [ -n "$PRELOAD_LIBS" ]; then
+            echo 'export LD_PRELOAD="'$PRELOAD_LIBS'"' >> ld-wrapper
+            echo 'export FAKESTAT="'$FAKESTAT'"' >> ld-wrapper
+            echo 'export FAKETIME="'$FAKETIME'"' >> ld-wrapper
+          fi
           echo 'ld.lld "$@"' >> ld-wrapper
-          
-          # 测试时间劫持测试是否正常工作
-          echo "--- [Wrapper Test] 正在创建通用的时间劫持测试脚本 ---"
-          echo '#!/bin/bash' > test-wrapper.sh
-          echo 'export LD_PRELOAD="'$PRELOAD_LIBS'"' >> test-wrapper.sh
-          echo 'export FAKESTAT="'$FAKESTAT'"' >> test-wrapper.sh
-          echo 'export FAKETIME="'$FAKETIME'"' >> test-wrapper.sh
-          echo 'echo ">>> Wrapper 内部环境检查完毕."' >> test-wrapper.sh
-          echo 'exec "$@"' >> test-wrapper.sh # 执行所有传入的参数
-          chmod +x test-wrapper.sh
-          echo "--- [Wrapper Test] 正在测试 (date) 命令 ---"
-          ./test-wrapper.sh date
-          echo "--- [Wrapper Test] 正在测试 (stat) 命令 ---"
-          ./test-wrapper.sh stat ./Makefile
-          echo "--- [Wrapper Test] 测试完毕 ---"
           chmod +x cc-wrapper ld-wrapper
-          echo "--- 编译前环境时间: $(LD_PRELOAD=$PRELOAD_LIBS date) ---"
-          echo "--- 编译前环境文件时间戳: ---"
-          LD_PRELOAD=$PRELOAD_LIBS stat ./Makefile
+          
+          # 测试时间劫持（仅在兼容时执行）
+          if [ -n "$PRELOAD_LIBS" ]; then
+            echo "--- [Wrapper Test] 正在测试时间伪造 ---"
+            LD_PRELOAD="$PRELOAD_LIBS" date || true
+            echo "--- 编译前环境时间: $(LD_PRELOAD=$PRELOAD_LIBS date) ---"
+            echo "--- 编译前环境文件时间戳: ---"
+            LD_PRELOAD=$PRELOAD_LIBS stat ./Makefile || true
+          else
+            echo "--- [Wrapper Test] 时间伪造已跳过（glibc 不兼容）---"
+          fi
           
           #在构建内核的同时清除不必要的.NET, Android NDK, Haskell, CodeQL运行库，清理空间且不阻塞后续步骤运行
           sudo rm -rf /usr/share/dotnet &
@@ -697,10 +702,10 @@ jobs:
           make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" LD="ld.lld" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig &&
           make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="$(pwd)/cc-wrapper" LD="$(pwd)/ld-wrapper" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error Image
           
-          # 编译后时间劫持二次校验
-          echo "--- 编译后环境时间: $(LD_PRELOAD=$PRELOAD_LIBS date) ---"
+          # 编译后时间劫持二次校验（glibc 不兼容时自动跳过）
+          echo "--- 编译后环境时间: $(LD_PRELOAD=$PRELOAD_LIBS date 2>/dev/null || date) ---"
           echo "--- 编译后环境文件时间戳: ---"
-          LD_PRELOAD=$PRELOAD_LIBS stat ./Makefile
+          LD_PRELOAD=$PRELOAD_LIBS stat ./Makefile 2>/dev/null || stat ./Makefile
           echo "内核编译完成！"
           echo "ccache状态："
           ccache -s
