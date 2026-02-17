@@ -837,6 +837,17 @@ jobs:
               } > common/include/net/proto_memory.h
               echo "BBRv3 full bridge: created include/net/proto_memory.h"
             fi
+            if [[ ! -f common/include/net/hotdata.h ]]; then
+              {
+                echo "/* BBRv3 full bridge for vendor trees without net/hotdata.h. */"
+                echo "#ifndef _NET_HOTDATA_H"
+                echo "#define _NET_HOTDATA_H"
+                echo "struct net_hotdata { int sysctl_max_skb_frags; };"
+                echo "extern struct net_hotdata net_hotdata;"
+                echo "#endif /* _NET_HOTDATA_H */"
+              } > common/include/net/hotdata.h
+              echo "BBRv3 full bridge: created include/net/hotdata.h"
+            fi
             if [[ ! -f common/include/linux/unaligned.h ]]; then
               {
                 echo "/* BBRv3 full bridge for vendor trees without linux/unaligned.h. */"
