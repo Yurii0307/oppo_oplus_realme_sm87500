@@ -562,11 +562,13 @@ jobs:
 
       - name: 自动尝试移植 BBRv3
         if: inputs.bbrv3_auto && inputs.bbr_enable != 'false'
+        env:
+          BBRV3_PORT_MODE_INPUT: ${{ github.event.inputs.bbrv3_port_mode }}
         run: |
           set -euo pipefail
           cd kernel_workspace
           BBRV3_REF="bbrv3-2025-03-18"
-          BBRV3_PORT_MODE="${{ github.event.inputs.bbrv3_port_mode }}"
+          BBRV3_PORT_MODE="$BBRV3_PORT_MODE_INPUT"
           if [[ -z "$BBRV3_PORT_MODE" ]]; then
             BBRV3_PORT_MODE="full"
           fi
