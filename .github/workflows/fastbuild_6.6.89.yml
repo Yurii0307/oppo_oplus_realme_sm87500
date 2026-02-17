@@ -648,7 +648,7 @@ jobs:
             fi
             if [[ -f common/include/net/inet_connection_sock.h && -f common/include/net/tls.h ]]; then
               if grep -q "container_of_const(ptr, struct inet_connection_sock, icsk_inet.sk)" common/include/net/inet_connection_sock.h; then
-                sed -E -i 's/struct[[:space:]]+inet_connection_sock[[:space:]]*\\*[[:space:]]*icsk[[:space:]]*=[[:space:]]*inet_csk\\(sk\\);/const struct inet_connection_sock *icsk = inet_csk(sk);/g' common/include/net/tls.h
+                sed -i 's/struct inet_connection_sock \*icsk = inet_csk(sk);/const struct inet_connection_sock *icsk = inet_csk(sk);/g' common/include/net/tls.h
                 echo "BBRv3 full bridge: adjusted inet_csk() constness in include/net/tls.h"
               fi
             fi
