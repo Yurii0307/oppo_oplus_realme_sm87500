@@ -696,6 +696,15 @@ jobs:
                 echo "#ifndef tcp_do_parse_auth_options"
                 echo "#define tcp_do_parse_auth_options(...) 0"
                 echo "#endif"
+                echo "#ifndef tcp_ao_connect_init"
+                echo "#define tcp_ao_connect_init(...) do { } while (0)"
+                echo "#endif"
+                echo "#ifndef tcp_ao_finish_connect"
+                echo "#define tcp_ao_finish_connect(...) do { } while (0)"
+                echo "#endif"
+                echo "#ifndef tcp_ao_established"
+                echo "#define tcp_ao_established(...) do { } while (0)"
+                echo "#endif"
                 echo "#ifndef tw_usec_ts"
                 echo "#define tw_usec_ts tw_ts_offset"
                 echo "#endif"
@@ -716,6 +725,12 @@ jobs:
                 echo "#endif"
                 echo "#ifndef skb_set_owner_edemux"
                 echo "#define skb_set_owner_edemux(...) do { } while (0)"
+                echo "#endif"
+                echo "#ifndef SKB_DROP_REASON_TCP_INVALID_ACK_SEQUENCE"
+                echo "#define SKB_DROP_REASON_TCP_INVALID_ACK_SEQUENCE SKB_DROP_REASON_TCP_INVALID_SEQUENCE"
+                echo "#endif"
+                echo "#ifndef SKB_DROP_REASON_TCP_ABORT_ON_DATA"
+                echo "#define SKB_DROP_REASON_TCP_ABORT_ON_DATA SKB_DROP_REASON_TCP_OLD_DATA"
                 echo "#endif"
                 echo "enum sk_rst_reason { SK_RST_REASON_NOT_SPECIFIED = 0 };"
                 echo ""
@@ -764,6 +779,18 @@ jobs:
             if [[ -f common/net/ipv4/tcp_bbr.c && -f common/include/linux/btf_ids.h ]] && ! grep -q "BTF_KFUNCS_START" common/include/linux/btf_ids.h; then
               sed -i 's/BTF_KFUNCS_START(/BTF_SET8_START(/g; s/BTF_KFUNCS_END(/BTF_SET8_END(/g' common/net/ipv4/tcp_bbr.c
               echo "BBRv3 full bridge: mapped BTF_KFUNCS_* to BTF_SET8_* in tcp_bbr.c"
+            fi
+            if [[ -f common/net/ipv4/tcp_output.c ]]; then
+              python - <<'PY'
+          import re
+          from pathlib import Path
+          p = Path("common/net/ipv4/tcp_output.c")
+          s = p.read_text(encoding="utf-8", errors="ignore")
+          s_new = re.sub(r'trace_tcp_send_reset\(([^,]+),\s*([^,]+),\s*[^)]+\);', r'trace_tcp_send_reset(\1, \2);', s)
+          if s_new != s:
+              p.write_text(s_new, encoding="utf-8")
+              print("BBRv3 full bridge: downgraded trace_tcp_send_reset(...) call signature")
+          PY
             fi
           fi
 
