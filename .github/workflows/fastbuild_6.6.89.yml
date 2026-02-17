@@ -782,12 +782,22 @@ jobs:
             fi
             if [[ -f common/net/ipv4/tcp_output.c ]]; then
               python - <<'PY'
-          import re
           from pathlib import Path
           p = Path("common/net/ipv4/tcp_output.c")
           s = p.read_text(encoding="utf-8", errors="ignore")
-          s_new = re.sub(r'trace_tcp_send_reset\(([^,]+),\s*([^,]+),\s*[^)]+\);', r'trace_tcp_send_reset(\1, \2);', s)
-          if s_new != s:
+          out = []
+          changed = False
+          for line in s.splitlines():
+              if "trace_tcp_send_reset(" in line and line.count(",") >= 2 and ")" in line:
+                  prefix, rhs = line.split("trace_tcp_send_reset(", 1)
+                  args, tail = rhs.split(")", 1)
+                  parts = [x.strip() for x in args.split(",")]
+                  if len(parts) >= 3:
+                      line = f"{prefix}trace_tcp_send_reset({parts[0]}, {parts[1]}){tail}"
+                      changed = True
+              out.append(line)
+          s_new = "\n".join(out) + "\n"
+          if changed:
               p.write_text(s_new, encoding="utf-8")
               print("BBRv3 full bridge: downgraded trace_tcp_send_reset(...) call signature")
           PY
