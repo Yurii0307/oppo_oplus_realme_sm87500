@@ -636,6 +636,36 @@ jobs:
           done
           echo "BBRv3 文件同步统计: total=$sync_total ok=$sync_ok fail=$sync_fail mode=$BBRV3_PORT_MODE"
 
+          if [[ "$BBRV3_PORT_MODE" == "full" ]]; then
+            # vendor bridge: some trees renamed pingpong thresh to plb_cong_thresh
+            if [[ -f common/include/net/netns/ipv4.h && -f common/include/net/inet_connection_sock.h ]]; then
+              if ! grep -q "sysctl_tcp_pingpong_thresh" common/include/net/netns/ipv4.h && grep -q "sysctl_tcp_plb_cong_thresh" common/include/net/netns/ipv4.h; then
+                sed -i 's/sysctl_tcp_pingpong_thresh/sysctl_tcp_plb_cong_thresh/g' common/include/net/inet_connection_sock.h
+                echo "BBRv3 full bridge: sysctl_tcp_pingpong_thresh -> sysctl_tcp_plb_cong_thresh"
+              fi
+            fi
+            # vendor bridge: provide cacheline group helpers if base tree lacks them
+            if [[ -f common/include/linux/cache.h ]] && ! grep -q "__cacheline_group_begin" common/include/linux/cache.h; then
+              {
+                echo ""
+                echo "/* BBRv3 full bridge for vendor trees lacking cacheline group helpers. */"
+                echo "#ifndef __cacheline_group_begin"
+                echo "#define __cacheline_group_begin(GROUP) unsigned char __cacheline_group_begin__##GROUP[0]"
+                echo "#endif"
+                echo "#ifndef __cacheline_group_end"
+                echo "#define __cacheline_group_end(GROUP) unsigned char __cacheline_group_end__##GROUP[0]"
+                echo "#endif"
+                echo "#ifndef CACHELINE_ASSERT_GROUP_MEMBER"
+                echo "#define CACHELINE_ASSERT_GROUP_MEMBER(TYPE, GROUP, MEMBER)"
+                echo "#endif"
+                echo "#ifndef CACHELINE_ASSERT_GROUP_SIZE"
+                echo "#define CACHELINE_ASSERT_GROUP_SIZE(TYPE, GROUP, SIZE)"
+                echo "#endif"
+              } >> common/include/linux/cache.h
+              echo "BBRv3 full bridge: injected cacheline group helper compatibility macros"
+            fi
+          fi
+
           if [[ ! -f common/net/ipv4/tcp_bbr.c ]]; then
             echo "::error::missing common/net/ipv4/tcp_bbr.c"
             exit 1
