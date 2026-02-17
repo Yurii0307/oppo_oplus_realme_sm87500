@@ -854,17 +854,32 @@ jobs:
                 echo "#ifndef _NET_RPS_H"
                 echo "#define _NET_RPS_H"
                 echo "#include <linux/types.h>"
-                echo "struct sock;"
-                echo "struct softnet_data;"
-                echo "static inline void sock_rps_record_flow_hash(__u32 hash) { (void)hash; }"
-                echo "static inline void sock_rps_record_flow(const struct sock *sk) { (void)sk; }"
-                echo "static inline u32 rps_input_queue_tail_incr(struct softnet_data *sd) { (void)sd; return 0; }"
-                echo "static inline void rps_input_queue_tail_save(u32 *dest, u32 tail) { (void)dest; (void)tail; }"
-                echo "static inline void rps_input_queue_head_add(struct softnet_data *sd, int val) { (void)sd; (void)val; }"
-                echo "static inline void rps_input_queue_head_incr(struct softnet_data *sd) { (void)sd; }"
+                echo "#ifndef sock_rps_record_flow_hash"
+                echo "#define sock_rps_record_flow_hash(...) do { } while (0)"
+                echo "#endif"
+                echo "#ifndef sock_rps_record_flow"
+                echo "#define sock_rps_record_flow(...) do { } while (0)"
+                echo "#endif"
+                echo "#ifndef rps_input_queue_tail_incr"
+                echo "#define rps_input_queue_tail_incr(...) 0U"
+                echo "#endif"
+                echo "#ifndef rps_input_queue_tail_save"
+                echo "#define rps_input_queue_tail_save(...) do { } while (0)"
+                echo "#endif"
+                echo "#ifndef rps_input_queue_head_add"
+                echo "#define rps_input_queue_head_add(...) do { } while (0)"
+                echo "#endif"
+                echo "#ifndef rps_input_queue_head_incr"
+                echo "#define rps_input_queue_head_incr(...) do { } while (0)"
+                echo "#endif"
                 echo "#endif /* _NET_RPS_H */"
               } > common/include/net/rps.h
               echo "BBRv3 full bridge: created include/net/rps.h"
+            fi
+            if [[ ! -f common/net/core/devmem.h && -f bbrv3-src/net/core/devmem.h ]]; then
+              mkdir -p common/net/core
+              cp bbrv3-src/net/core/devmem.h common/net/core/devmem.h
+              echo "BBRv3 full bridge: copied net/core/devmem.h from BBRv3 source"
             fi
             if [[ ! -f common/include/linux/unaligned.h ]]; then
               {
