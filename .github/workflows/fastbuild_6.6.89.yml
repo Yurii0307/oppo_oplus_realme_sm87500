@@ -594,6 +594,7 @@ jobs:
             include/linux/tcp.h
             include/net/inet_connection_sock.h
             include/net/tcp.h
+            include/net/tcp_ao.h
             include/uapi/linux/inet_diag.h
             include/uapi/linux/rtnetlink.h
             include/uapi/linux/tcp.h
@@ -638,8 +639,39 @@ jobs:
                 sed -i 's/sysctl_tcp_pingpong_thresh/sysctl_tcp_plb_cong_thresh/g' common/include/net/inet_connection_sock.h
               fi
             fi
-            if [[ -f common/include/linux/tcp.h ]]; then
-              sed -E -i 's/__cacheline_group_begin\([^)]*\);/\/\* BBRv3 fullstack compat: cacheline group begin \*\//g; s/__cacheline_group_end\([^)]*\);/\/\* BBRv3 fullstack compat: cacheline group end \*\//g' common/include/linux/tcp.h
+            if [[ -f common/include/linux/cache.h ]] && ! grep -q "__cacheline_group_begin" common/include/linux/cache.h; then
+              cat >> common/include/linux/cache.h <<'EOF'
+
+/* BBRv3 fullstack compat for vendor trees lacking cacheline group helpers. */
+#ifndef __cacheline_group_begin
+#define __cacheline_group_begin(GROUP) unsigned char __cacheline_group_begin__##GROUP[0]
+#endif
+#ifndef __cacheline_group_end
+#define __cacheline_group_end(GROUP) unsigned char __cacheline_group_end__##GROUP[0]
+#endif
+#ifndef CACHELINE_ASSERT_GROUP_MEMBER
+#define CACHELINE_ASSERT_GROUP_MEMBER(TYPE, GROUP, MEMBER)
+#endif
+#ifndef CACHELINE_ASSERT_GROUP_SIZE
+#define CACHELINE_ASSERT_GROUP_SIZE(TYPE, GROUP, SIZE)
+#endif
+EOF
+            fi
+            if [[ ! -f common/include/net/tcp_ao.h ]]; then
+              cat > common/include/net/tcp_ao.h <<'EOF'
+/* BBRv3 fullstack compat stub for vendor trees without TCP-AO support. */
+#ifndef _NET_TCP_AO_H
+#define _NET_TCP_AO_H
+
+struct sock;
+struct tcp_sock;
+struct request_sock;
+struct sk_buff;
+struct tcp_ao_key;
+struct tcp_ao_info;
+
+#endif /* _NET_TCP_AO_H */
+EOF
             fi
           fi
 
