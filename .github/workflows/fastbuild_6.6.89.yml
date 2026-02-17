@@ -679,7 +679,7 @@ jobs:
                 echo "struct sk_buff;"
                 echo "struct tcphdr;"
                 echo "union tcp_ao_addr { __be32 addr4; __be32 addr6[4]; };"
-                echo "struct tcp_ao_hdr { __u8 kind; __u8 length; };"
+                echo "struct tcp_ao_hdr { __u8 kind; __u8 length; __u8 keyid; __u8 rnext_keyid; };"
                 echo "struct tcp_ao_key { __u8 keylen; };"
                 echo "struct tcp_ao_info;"
                 echo ""
@@ -713,6 +713,21 @@ jobs:
                 echo "#ifndef tcp_ao_destroy_sock"
                 echo "#define tcp_ao_destroy_sock(...) do { } while (0)"
                 echo "#endif"
+                echo "#ifndef tcp_ao_set_repair"
+                echo "#define tcp_ao_set_repair(...) 0"
+                echo "#endif"
+                echo "#ifndef tcp_ao_get_repair"
+                echo "#define tcp_ao_get_repair(...) 0"
+                echo "#endif"
+                echo "#ifndef tcp_ao_get_mkts"
+                echo "#define tcp_ao_get_mkts(...) 0"
+                echo "#endif"
+                echo "#ifndef tcp_ao_get_sock_info"
+                echo "#define tcp_ao_get_sock_info(...) 0"
+                echo "#endif"
+                echo "#ifndef tcp_ao_hdr_maclen"
+                echo "#define tcp_ao_hdr_maclen(...) 0"
+                echo "#endif"
                 echo "#ifndef skb_frags_readable"
                 echo "#define skb_frags_readable(...) 1"
                 echo "#endif"
@@ -736,6 +751,24 @@ jobs:
                 echo "#endif"
                 echo "#ifndef SKB_DROP_REASON_TCP_ABORT_ON_DATA"
                 echo "#define SKB_DROP_REASON_TCP_ABORT_ON_DATA SKB_DROP_REASON_TCP_OLD_DATA"
+                echo "#endif"
+                echo "#ifndef SKB_DROP_REASON_TCP_AUTH_HDR"
+                echo "#define SKB_DROP_REASON_TCP_AUTH_HDR SKB_DROP_REASON_NOT_SPECIFIED"
+                echo "#endif"
+                echo "#ifndef LINUX_MIB_TCPAOBAD"
+                echo "#define LINUX_MIB_TCPAOBAD LINUX_MIB_TCPABORTFAILED"
+                echo "#endif"
+                echo "#ifndef MSG_SOCK_DEVMEM"
+                echo "#define MSG_SOCK_DEVMEM 0"
+                echo "#endif"
+                echo "#ifndef BPF_TCP_BOUND_INACTIVE"
+                echo "#define BPF_TCP_BOUND_INACTIVE 0"
+                echo "#endif"
+                echo "#ifndef TCP_BOUND_INACTIVE"
+                echo "#define TCP_BOUND_INACTIVE 0"
+                echo "#endif"
+                echo "#ifndef trace_tcp_hash_bad_header"
+                echo "#define trace_tcp_hash_bad_header(...) do { } while (0)"
                 echo "#endif"
                 echo "#ifndef __SK_RST_REASON_ENUM_DEFINED"
                 echo "#define __SK_RST_REASON_ENUM_DEFINED"
@@ -962,7 +995,11 @@ jobs:
               "rto_min_us = jiffies_to_usecs(TCP_RTO_MIN);",
           )
           s = s.replace("xa_init_flags(&sk->sk_user_frags, XA_FLAGS_ALLOC1);\n", "")
+          s = s.replace("sock_tx_timestamp(sk, sockc, &shinfo->tx_flags);", "sock_tx_timestamp(sk, sockc->tsflags, &shinfo->tx_flags);")
           s = s.replace("SOF_TIMESTAMPING_OPT_RX_FILTER", "0")
+          s = s.replace("MSG_SOCK_DEVMEM", "0")
+          s = s.replace("BUILD_BUG_ON((int)BPF_TCP_BOUND_INACTIVE != (int)TCP_BOUND_INACTIVE);", "")
+          s = s.replace("LINUX_MIB_TCPAOBAD", "LINUX_MIB_TCPABORTFAILED")
           marker = "/* batch __xa_alloc() calls and reduce xa_lock()/xa_unlock() overhead. */"
           start = s.find(marker)
           if start != -1:
