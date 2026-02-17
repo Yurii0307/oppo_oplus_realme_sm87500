@@ -633,43 +633,14 @@ jobs:
           echo "BBRv3 文件同步完成: ok=$sync_ok skip=$sync_skip mode=$BBRV3_PORT_MODE"
 
           if [[ "$BBRV3_PORT_MODE" == "full" ]]; then
-            python - <<'PY'
-          from pathlib import Path
-
-          ns = Path("common/include/net/netns/ipv4.h")
-          icsk = Path("common/include/net/inet_connection_sock.h")
-          if ns.exists() and icsk.exists():
-            ns_s = ns.read_text(encoding="utf-8")
-            s = icsk.read_text(encoding="utf-8")
-            if "sysctl_tcp_pingpong_thresh" not in ns_s and "sysctl_tcp_plb_cong_thresh" in ns_s:
-              shim = (
-                "/* BBRv3 fullstack pingpong compat shim */\n"
-                "#ifndef sysctl_tcp_pingpong_thresh\n"
-                "#define sysctl_tcp_pingpong_thresh sysctl_tcp_plb_cong_thresh\n"
-                "#endif\n\n"
-              )
-              if "BBRv3 fullstack pingpong compat shim" not in s:
-                pos = s.find("#include")
-                s = (shim + s) if pos == -1 else (s[:pos] + shim + s[pos:])
-                icsk.write_text(s, encoding="utf-8")
-
-          ltcp = Path("common/include/linux/tcp.h")
-          if ltcp.exists():
-            s = ltcp.read_text(encoding="utf-8")
-            if "__cacheline_group_begin(" in s and "BBRv3 fullstack cacheline compat shim" not in s:
-              shim = (
-                "/* BBRv3 fullstack cacheline compat shim */\n"
-                "#ifndef __cacheline_group_begin\n"
-                "#define __cacheline_group_begin(G)\n"
-                "#endif\n"
-                "#ifndef __cacheline_group_end\n"
-                "#define __cacheline_group_end(G)\n"
-                "#endif\n\n"
-              )
-              pos = s.find("#include")
-              s = (shim + s) if pos == -1 else (s[:pos] + shim + s[pos:])
-              ltcp.write_text(s, encoding="utf-8")
-          PY
+            if [[ -f common/include/net/netns/ipv4.h && -f common/include/net/inet_connection_sock.h ]]; then
+              if ! grep -q "sysctl_tcp_pingpong_thresh" common/include/net/netns/ipv4.h && grep -q "sysctl_tcp_plb_cong_thresh" common/include/net/netns/ipv4.h; then
+                sed -i 's/sysctl_tcp_pingpong_thresh/sysctl_tcp_plb_cong_thresh/g' common/include/net/inet_connection_sock.h
+              fi
+            fi
+            if [[ -f common/include/linux/tcp.h ]]; then
+              sed -E -i 's/__cacheline_group_begin\([^)]*\);/\/\* BBRv3 fullstack compat: cacheline group begin \*\//g; s/__cacheline_group_end\([^)]*\);/\/\* BBRv3 fullstack compat: cacheline group end \*\//g' common/include/linux/tcp.h
+            fi
           fi
 
           if [[ ! -f common/net/ipv4/tcp_bbr.c ]]; then
