@@ -1072,7 +1072,7 @@ jobs:
                 sed -i 's/tcp_time_stamp(tcp_sk(sk))/tcp_jiffies32/g; s/tcp_time_stamp(tp)/tcp_jiffies32/g; s/tcp_skb_timestamp(skb)/tcp_jiffies32/g' common/net/ipv4/tcp_timer.c
                 echo "BBRv3 full bridge: mapped tcp_timer.c timestamp helpers to tcp_jiffies32"
               fi
-              if [[ -f common/include/net/tcp.h ]] && grep -Eq "tcp_send_active_reset\\(struct sock \\*sk, gfp_t [^)]*enum sk_rst_reason" common/include/net/tcp.h; then
+              if [[ -f common/include/net/tcp.h ]]; then
                 sed -i 's/tcp_send_active_reset(sk, GFP_ATOMIC);/tcp_send_active_reset(sk, GFP_ATOMIC, SK_RST_REASON_NOT_SPECIFIED);/g' common/net/ipv4/tcp_timer.c
                 echo "BBRv3 full bridge: adapted tcp_send_active_reset() calls in tcp_timer.c to 3-arg signature"
               fi
