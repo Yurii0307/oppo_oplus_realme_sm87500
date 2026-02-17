@@ -591,27 +591,9 @@ jobs:
             include/uapi/linux/inet_diag.h
           )
           bbrv3_files_full=(
-            include/linux/skbuff_ref.h
-            include/linux/tcp.h
-            include/linux/unaligned.h
             include/net/inet_connection_sock.h
-            include/net/tcp.h
-            include/net/tcp_ao.h
             include/uapi/linux/inet_diag.h
-            include/uapi/linux/rtnetlink.h
-            include/uapi/linux/tcp.h
-            net/ipv4/bpf_tcp_ca.c
-            net/ipv4/Kconfig
-            net/ipv4/Makefile
-            net/ipv4/tcp.c
             net/ipv4/tcp_bbr.c
-            net/ipv4/tcp_bbr1.c
-            net/ipv4/tcp_cong.c
-            net/ipv4/tcp_input.c
-            net/ipv4/tcp_minisocks.c
-            net/ipv4/tcp_output.c
-            net/ipv4/tcp_rate.c
-            net/ipv4/tcp_timer.c
           )
           if [[ "$BBRV3_PORT_MODE" == "full" ]]; then
             bbrv3_files=("${bbrv3_files_full[@]}")
@@ -705,8 +687,10 @@ jobs:
                 echo "#endif /* _LINUX_SKBUFF_REF_H */"
               } > common/include/linux/skbuff_ref.h
             fi
-            if [[ -f common/include/net/tcp.h ]]; then
+            if [[ -f common/include/net/tcp.h ]] && grep -q "tw_usec_ts" common/include/net/tcp.h; then
               sed -E -i 's/tcp_clock_ts\(tcptw->[^)]*tw_usec_ts\)[[:space:]]*\+[[:space:]]*tcptw->tw_ts_offset/0/g' common/include/net/tcp.h
+            fi
+            if [[ -f common/include/net/tcp.h ]] && grep -q "skb_frags_readable(" common/include/net/tcp.h; then
               sed -E -i 's/skb_frags_readable\([^)]*\)[[:space:]]*==[[:space:]]*skb_frags_readable\([^)]*\)/1/g' common/include/net/tcp.h
             fi
           fi
