@@ -848,6 +848,24 @@ jobs:
               } > common/include/net/hotdata.h
               echo "BBRv3 full bridge: created include/net/hotdata.h"
             fi
+            if [[ ! -f common/include/net/rps.h ]]; then
+              {
+                echo "/* BBRv3 full bridge for vendor trees without net/rps.h. */"
+                echo "#ifndef _NET_RPS_H"
+                echo "#define _NET_RPS_H"
+                echo "#include <linux/types.h>"
+                echo "struct sock;"
+                echo "struct softnet_data;"
+                echo "static inline void sock_rps_record_flow_hash(__u32 hash) { (void)hash; }"
+                echo "static inline void sock_rps_record_flow(const struct sock *sk) { (void)sk; }"
+                echo "static inline u32 rps_input_queue_tail_incr(struct softnet_data *sd) { (void)sd; return 0; }"
+                echo "static inline void rps_input_queue_tail_save(u32 *dest, u32 tail) { (void)dest; (void)tail; }"
+                echo "static inline void rps_input_queue_head_add(struct softnet_data *sd, int val) { (void)sd; (void)val; }"
+                echo "static inline void rps_input_queue_head_incr(struct softnet_data *sd) { (void)sd; }"
+                echo "#endif /* _NET_RPS_H */"
+              } > common/include/net/rps.h
+              echo "BBRv3 full bridge: created include/net/rps.h"
+            fi
             if [[ ! -f common/include/linux/unaligned.h ]]; then
               {
                 echo "/* BBRv3 full bridge for vendor trees without linux/unaligned.h. */"
