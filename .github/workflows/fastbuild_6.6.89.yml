@@ -1079,6 +1079,48 @@ jobs:
               sed -i 's/icsk->icsk_ack.ato = min(icsk->icsk_ack.ato << 1, icsk->icsk_rto);/icsk->icsk_ack.ato = min_t(u32, icsk->icsk_ack.ato << 1, icsk->icsk_rto);/g' common/net/ipv4/tcp_timer.c
               echo "BBRv3 full bridge: normalized tcp_timer.c delayed-ack min() type usage"
             fi
+            if [[ -f common/net/ipv4/tcp_ipv4.c ]]; then
+              python - <<'PY'
+          from pathlib import Path
+          p = Path("common/net/ipv4/tcp_ipv4.c")
+          s = p.read_text(encoding="utf-8", errors="ignore")
+          changed = False
+
+          old_sig = "struct request_sock *req)\n{\n\ttcp_v4_init_req(req, sk, skb);"
+          new_sig = "struct request_sock *req, u32 isn)\n{\n\t(void)isn;\n\ttcp_v4_init_req(req, sk, skb);"
+          if old_sig in s:
+              s = s.replace(old_sig, new_sig, 1)
+              changed = True
+
+          if "tcp_time_stamp_raw()" in s:
+              s = s.replace("tcp_time_stamp_raw()", "tcp_jiffies32")
+              changed = True
+
+          if "TCP_SKB_CB(skb)->tcp_tw_isn = 0;" in s:
+              s = s.replace("TCP_SKB_CB(skb)->tcp_tw_isn = 0;\n", "")
+              changed = True
+
+          if "tcp_inbound_md5_hash(sk, skb," in s:
+              s = s.replace("tcp_inbound_md5_hash(sk, skb,", "tcp_inbound_hash(sk, req, skb,", 1)
+              s = s.replace("tcp_inbound_md5_hash(sk, skb,", "tcp_inbound_hash(sk, NULL, skb,")
+              changed = True
+
+          if "tcp_timewait_state_process(inet_twsk(sk), skb, th)" in s:
+              s = s.replace("tcp_timewait_state_process(inet_twsk(sk), skb, th)",
+                            "tcp_timewait_state_process(inet_twsk(sk), skb, th, &isn)")
+              changed = True
+
+          decl_old = "bool refcounted;\n\tstruct sock *sk;\n\tint ret;\n"
+          decl_new = "bool refcounted;\n\tstruct sock *sk;\n\tint ret;\n\tu32 isn;\n"
+          if decl_old in s and "u32 isn;" not in s:
+              s = s.replace(decl_old, decl_new, 1)
+              changed = True
+
+          if changed:
+              p.write_text(s, encoding="utf-8")
+              print("BBRv3 full bridge: applied tcp_ipv4.c API adaptation shims")
+          PY
+            fi
             if [[ -f common/net/ipv4/tcp_output.c ]]; then
               python - <<'PY'
           from pathlib import Path
